@@ -1,48 +1,31 @@
 """
-Сервис для работы с LLM через OpenRouter.
-
-OpenRouter — это "прокси" к разным моделям.
-Его API совместим с OpenAI, поэтому мы используем
-LangChain модуль ChatOpenAI, но указываем адрес OpenRouter.
-
-Без LangChain:
-    resp = await httpx.post("https://openrouter.ai/api/v1/...", json={...})
-    answer = resp.json()["choices"][0]["message"]["content"]
-
-С LangChain:
-    llm = ChatOpenAI(...)
-    answer = llm.invoke("Привет")
-
-Плюс: легко сменить на любую другую модель одной строкой.
+LLM через OpenRouter — лёгкая версия без langchain-openai.
 """
-
-from langchain_openai import ChatOpenAI
+import httpx
 import os
 
 
-def get_llm():
-    """
-    Создаёт объект LLM через OpenRouter.
+async def ask_llm(prompt: str) -> str:
+    headers = {
+        "Authorization": f"Bearer {os.getenv('OPENROUTER_API_KEY')}",
+        "Content-Type": "application/json",
+    }
 
-    ChatOpenAI работает с любым OpenAI-совместимым API.
-    Мы просто меняем base_url на OpenRouter.
-    """
-    return ChatOpenAI(
-        # Адрес OpenRouter (вместо api.openai.com)
-        base_url="https://openrouter.ai/api/v1",
+    async with httpx.AsyncClient() as client:
+        resp = await client.post(
+            "https://openrouter.ai/api/v1/chat/completions",
+            headers=headers,
+            json={
+                "model": os.getenv(
+                    "OPENROUTER_MODEL",
+                    "cognitivecomputations/dolphin-mistral-24b-venice-edition:free"
+                ),
+                "messages": [{"role": "user", "content": prompt}],
+                "max_tokens": 5000,
+                "temperature": 0.1,
+            },
+            timeout=120.0,
+        )
 
-        # Наш API ключ
-        api_key=os.getenv("OPENROUTER_API_KEY"),
-
-        # Какая модель
-        model=os.getenv(
-            "OPENROUTER_MODEL",
-            "cognitivecomputations/dolphin-mistral-24b-venice-edition:free"
-        ),
-
-        # Температура: 0 = точный, 1 = творческий
-        temperature=0.1,
-
-        # Максимум токенов в ответе
-        max_tokens=1000,
-    )
+    data = resp.json()
+    return data["choices"][0]["message"]["content"]

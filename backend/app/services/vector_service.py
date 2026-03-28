@@ -1,111 +1,88 @@
 """
-Сервис Qdrant — работает и локально, и в облаке.
-Определяет режим по переменным окружения.
+Qdrant — лёгкая версия через qdrant-client напрямую.
 """
-
-from langchain_qdrant import QdrantVectorStore
 from qdrant_client import QdrantClient
 from qdrant_client.models import (
-    Distance, VectorParams,
+    Distance, VectorParams, PointStruct,
     Filter, FieldCondition, MatchValue,
 )
-from app.services.embedding_service import get_embedding_model
+from app.services.embedding_service import embed_query, embed_documents
 import os
+import uuid
 
-# Настройки Qdrant
-QDRANT_URL = os.getenv("QDRANT_URL", None)          # для облака
-QDRANT_API_KEY = os.getenv("QDRANT_API_KEY", None)   # для облака
-QDRANT_HOST = os.getenv("QDRANT_HOST", "qdrant")     # для локалки
+QDRANT_URL = os.getenv("QDRANT_URL", None)
+QDRANT_API_KEY = os.getenv("QDRANT_API_KEY", None)
+QDRANT_HOST = os.getenv("QDRANT_HOST", "qdrant")
 COLLECTION = "documents"
 
-_embedding_model = None
 
-
-def _get_embeddings():
-    global _embedding_model
-    if _embedding_model is None:
-        _embedding_model = get_embedding_model()
-    return _embedding_model
-
-
-def get_qdrant_client():
-    """
-    Подключение к Qdrant.
-    Если есть QDRANT_URL — подключаемся к облаку.
-    Если нет — к локальному Docker.
-    """
+def get_client():
     if QDRANT_URL:
-        return QdrantClient(
-            url=QDRANT_URL,
-            api_key=QDRANT_API_KEY,
-        )
-    else:
-        return QdrantClient(host=QDRANT_HOST, port=6333)
+        return QdrantClient(url=QDRANT_URL, api_key=QDRANT_API_KEY)
+    return QdrantClient(host=QDRANT_HOST, port=6333)
 
 
-def get_vector_store():
-    client = get_qdrant_client()
-    embeddings = _get_embeddings()
-
+def ensure_collection():
+    client = get_client()
     collections = [c.name for c in client.get_collections().collections]
-
     if COLLECTION not in collections:
-        test_vector = embeddings.embed_query("тест")
-        vector_size = len(test_vector)
-
+        test_vec = embed_query("test")
         client.create_collection(
             collection_name=COLLECTION,
-            vectors_config=VectorParams(
-                size=vector_size,
-                distance=Distance.COSINE,
-            ),
-        )
-
-    if QDRANT_URL:
-        return QdrantVectorStore(
-            url=QDRANT_URL,
-            api_key=QDRANT_API_KEY,
-            collection_name=COLLECTION,
-            embedding=embeddings,
-        )
-    else:
-        return QdrantVectorStore(
-            client=client,
-            collection_name=COLLECTION,
-            embedding=embeddings,
+            vectors_config=VectorParams(size=len(test_vec), distance=Distance.COSINE),
         )
 
 
-def add_texts_to_store(chunks: list[str], metadata: dict):
-    store = get_vector_store()
-    metadatas = []
-    for i in range(len(chunks)):
-        metadatas.append({
-            "source": metadata.get("filename", "unknown"),
-            "chunk_index": i,
-            "total_chunks": len(chunks),
-        })
-    store.add_texts(texts=chunks, metadatas=metadatas)
+def add_texts(chunks: list[str], filename: str):
+    client = get_client()
+    ensure_collection()
+
+    embeddings = embed_documents(chunks)
+
+    points = []
+    for i, (chunk, emb) in enumerate(zip(chunks, embeddings)):
+        points.append(PointStruct(
+            id=str(uuid.uuid4()),
+            vector=emb,
+            payload={
+                "text": chunk,
+                "source": filename,
+                "chunk_index": i,
+            },
+        ))
+
+    client.upsert(collection_name=COLLECTION, points=points)
 
 
-def search_similar(question: str, top_k: int = 5):
-    store = get_vector_store()
-    results = store.similarity_search_with_score(question, k=top_k)
-    return results
+def search(question: str, top_k: int = 5) -> list[dict]:
+    client = get_client()
+    ensure_collection()
+
+    query_vector = embed_query(question)
+
+    results = client.search(
+        collection_name=COLLECTION,
+        query_vector=query_vector,
+        limit=top_k,
+    )
+
+    return [
+        {
+            "text": r.payload.get("text", ""),
+            "source": r.payload.get("source", "unknown"),
+            "score": round(r.score, 3),
+        }
+        for r in results
+    ]
 
 
 def delete_document(filename: str) -> int:
-    client = get_qdrant_client()
+    client = get_client()
     points = client.scroll(
         collection_name=COLLECTION,
-        scroll_filter=Filter(
-            must=[
-                FieldCondition(
-                    key="metadata.source",
-                    match=MatchValue(value=filename),
-                )
-            ]
-        ),
+        scroll_filter=Filter(must=[
+            FieldCondition(key="source", match=MatchValue(value=filename))
+        ]),
         limit=1000,
         with_payload=False,
     )[0]
@@ -116,21 +93,45 @@ def delete_document(filename: str) -> int:
 
     client.delete(
         collection_name=COLLECTION,
-        points_selector=Filter(
-            must=[
-                FieldCondition(
-                    key="metadata.source",
-                    match=MatchValue(value=filename),
-                )
-            ]
-        ),
+        points_selector=Filter(must=[
+            FieldCondition(key="source", match=MatchValue(value=filename))
+        ]),
     )
     return count
 
 
 def reset_collection():
-    client = get_qdrant_client()
+    client = get_client()
     collections = [c.name for c in client.get_collections().collections]
     if COLLECTION in collections:
         client.delete_collection(COLLECTION)
-    get_vector_store()
+    ensure_collection()
+
+
+def list_documents() -> dict:
+    client = get_client()
+    collections = [c.name for c in client.get_collections().collections]
+    if COLLECTION not in collections:
+        return {"documents": [], "total_chunks": 0}
+
+    info = client.get_collection(COLLECTION)
+    total = info.points_count
+
+    points = client.scroll(
+        collection_name=COLLECTION,
+        limit=1000,
+        with_payload=["source"],
+    )[0]
+
+    files = {}
+    for p in points:
+        source = p.payload.get("source", "unknown")
+        files[source] = files.get(source, 0) + 1
+
+    return {
+        "total_chunks": total,
+        "documents": [
+            {"filename": name, "chunks": count}
+            for name, count in files.items()
+        ],
+    }
