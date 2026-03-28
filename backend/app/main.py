@@ -116,6 +116,18 @@ async def ask_question(
             "trace": traceback.format_exc(),
         }
 
+@app.get("/debug-key")
+async def debug_key():
+    """Показывает первые и последние символы ключа"""
+    key = os.getenv("OPENROUTER_API_KEY", "НЕ ЗАДАН")
+    if key == "НЕ ЗАДАН" or len(key) < 10:
+        return {"key_status": "НЕ ЗАДАН или слишком короткий", "length": len(key)}
+    return {
+        "key_status": "задан",
+        "length": len(key),
+        "start": key[:10],
+        "end": key[-5:],
+    }
 
 @app.get("/test-llm")
 async def test_llm():
