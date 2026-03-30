@@ -64,6 +64,15 @@ services:
       timeout: 5s
       retries: 5
 
+  frontend:
+    build: ./frontend
+    container_name: rag-frontend
+    ports:
+      - "3000:80" # Сайт будет доступен по адресу http://localhost:3000
+    depends_on:
+      - backend
+    restart: always
+
 volumes:
   postgres_data:
   qdrant_data:
