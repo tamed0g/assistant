@@ -1,70 +1,49 @@
-"""
-Сервис обработки документов.
-
-Что делает:
-1. Читает файл (PDF, TXT, MD)
-2. Извлекает текст
-3. Разбивает на кусочки (чанки)
-
-LangChain TextSplitter умнее нашего старого кода:
-- Режет по абзацам, потом по предложениям
-- Не режет посреди слова
-- Добавляет перекрытие (overlap) между кусочками
-"""
-
-from langchain_text_splitters import RecursiveCharacterTextSplitter
-from pypdf import PdfReader
+import logging
 from io import BytesIO
+from typing import List
 
+from pypdf import PdfReader
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+
+logger = logging.getLogger(__name__)
 
 def extract_text(content: bytes, filename: str) -> str:
     """
-    Извлекает текст из файла.
-
-    content  — содержимое файла в байтах (как его прислал браузер)
-    filename — имя файла ("report.pdf")
-
-    Возвращает: строку с текстом
+    Извлекает сырой текст из файлов (PDF, TXT, MD).
     """
     name = filename.lower()
+    logger.info(f"Extracting text from document: {filename}")
 
-    if name.endswith(".pdf"):
-        # PDF → текст через библиотеку pypdf
-        reader = PdfReader(BytesIO(content))
-        pages = []
-        for page in reader.pages:
-            text = page.extract_text()
-            if text:
-                pages.append(text)
-        return "\n\n".join(pages)
+    try:
+        if name.endswith(".pdf"):
+            reader = PdfReader(BytesIO(content))
+            pages = [page.extract_text() for page in reader.pages if page.extract_text()]
+            return "\n\n".join(pages)
 
-    elif name.endswith((".txt", ".md")):
-        # Текстовый файл → просто декодируем байты в строку
-        return content.decode("utf-8")
+        elif name.endswith((".txt", ".md")):
+            return content.decode("utf-8")
 
-    else:
-        raise ValueError(f"Формат не поддерживается: {filename}")
+        else:
+            logger.error(f"Unsupported file format attempted: {filename}")
+            raise ValueError(f"Unsupported file format: {filename}")
+            
+    except Exception as e:
+        logger.error(f"Error extracting text from {filename}: {str(e)}", exc_info=True)
+        raise ValueError(f"Failed to extract text from {filename}: {str(e)}")
 
 
-def split_into_chunks(text: str) -> list[str]:
+def split_into_chunks(text: str, chunk_size: int = 500, chunk_overlap: int = 50) -> List[str]:
     """
-    Разбивает текст на кусочки.
-
-    Пример:
-        Вход: "Длинный текст на 5000 символов..."
-        Выход: ["кусок 1 (500 символов)", "кусок 2 (500 символов)", ...]
-
-    RecursiveCharacterTextSplitter пробует резать:
-        1. По абзацам (\\n\\n)
-        2. По строкам (\\n)
-        3. По предложениям (. ! ?)
-        4. По пробелам
-        5. По буквам (крайний случай)
+    Разбивает текст на семантические чанки с помощью LangChain.
     """
+    logger.info(f"Splitting text into chunks (size={chunk_size}, overlap={chunk_overlap})...")
+    
     splitter = RecursiveCharacterTextSplitter(
-        chunk_size=500,        # максимум символов в кусочке
-        chunk_overlap=50,      # перекрытие между кусочками
+        chunk_size=chunk_size,
+        chunk_overlap=chunk_overlap,
         separators=["\n\n", "\n", ". ", "! ", "? ", " ", ""],
     )
 
-    return splitter.split_text(text)
+    chunks = splitter.split_text(text)
+    logger.info(f"Successfully generated {len(chunks)} chunks.")
+    return chunks

@@ -1,34 +1,33 @@
+import logging
+from typing import Dict, Any, List, Optional
+
 from app.services.llm_service import ask_llm
 from app.services.vector_service import search
 
-conversations = {}
+logger = logging.getLogger(__name__)
 
+# In-memory хранилище сессий (в проде заменяется на Redis)
+conversations: Dict[str, List[Dict[str, str]]] = {}
 
-def get_conversation(conv_id):
+def get_conversation(conv_id: str) -> List[Dict[str, str]]:
     if conv_id not in conversations:
         conversations[conv_id] = []
     return conversations[conv_id]
 
-
-def add_to_conversation(conv_id, role, content):
+def add_to_conversation(conv_id: str, role: str, content: str) -> None:
     if conv_id not in conversations:
         conversations[conv_id] = []
+        
     conversations[conv_id].append({"role": role, "content": content})
+    
+    # Сохраняем только последние 20 сообщений, чтобы не переполнить контекст (Sliding Window)
     if len(conversations[conv_id]) > 20:
         conversations[conv_id] = conversations[conv_id][-20:]
 
-
-def clear_conversation(conv_id):
-    conversations[conv_id] = []
-
-
-def list_conversations():
-    return list(conversations.keys())
-
-
-def _format_history(history):
+def format_history(history: List[Dict[str, str]]) -> str:
     if not history:
         return ""
+    
     recent = history[-6:]
     lines = ["Предыдущий разговор:"]
     for msg in recent:
@@ -36,104 +35,101 @@ def _format_history(history):
         lines.append(f"{role}: {msg['content'][:300]}")
     return "\n".join(lines)
 
+async def ask_with_rag(question: str, conversation_id: Optional[str] = None) -> Dict[str, Any]:
+    """
+    Основной пайплайн RAG: Поиск контекста + Генерация ответа.
+    """
+    logger.info(f"Processing RAG request. Session: {conversation_id}")
+    
+    history = get_conversation(conversation_id) if conversation_id else []
+    history_block = format_history(history)
 
-async def ask_with_rag(question, conversation_id=None):
-    history = []
-    if conversation_id:
-        history = get_conversation(conversation_id)
-    history_block = _format_history(history)
-
-    # Пробуем найти в документах
+    # 1. Поиск в векторной БД (Retrieval)
     try:
         results = search(question, top_k=5)
-    except Exception:
+        logger.info(f"Retrieved {len(results)} context chunks from Qdrant.")
+    except Exception as e:
+        logger.error(f"Vector search failed: {str(e)}", exc_info=True)
         results = []
 
-    # Определяем: есть ли релевантные документы?
-    has_relevant_docs = len(results) > 0 and results[0]["score"] > 0.5
-    has_some_docs = len(results) > 0 and results[0]["score"] > 0.3
+    # 2. Оценка релевантности документов
+    has_relevant_docs = len(results) > 0 and results[0].get("score", 0) > 0.5
+    has_some_docs = len(results) > 0 and results[0].get("score", 0) > 0.3
 
+    context_parts = []
+    sources = []
+    
+    for r in results:
+        context_parts.append(f"[Из файла '{r['source']}']:\n{r['text']}")
+        sources.append({"file": r["source"], "score": r["score"]})
+        
+    context_text = "\n\n---\n\n".join(context_parts) if context_parts else ""
+
+    # 3. Динамическая генерация промпта (Augmentation)
     if has_relevant_docs:
-        # === СЦЕНАРИЙ 1: Ответ ТОЧНО есть в документах ===
-        context_parts = []
-        sources = []
-        for r in results:
-            context_parts.append(f"[Из файла '{r['source']}']:\n{r['text']}")
-            sources.append({"file": r["source"], "score": r["score"]})
-        context = "\n\n---\n\n".join(context_parts)
-
+        logger.info("Strategy: High relevance documents found (Exact match).")
         prompt = f"""Ты — умный корпоративный ассистент.
 
 ПРАВИЛА:
-1. У тебя есть контекст из загруженных документов — используй его.
-2. Если ответ есть в документах — отвечай по ним и указывай файл.
-3. Если в документах есть ЧАСТИЧНЫЙ ответ — дай его и дополни своими знаниями.
-4. Отвечай на русском языке, кратко и по делу.
-
-Формат ответа:
-- Информация из документов: начни с 📄
-- Дополнение из общих знаний: начни с 💡
+1. Используй контекст из документов ниже.
+2. Если ответ есть в документах — отвечай по ним и указывай файл (используй эмодзи 📄).
+3. Если документы дают частичный ответ — дополни своими знаниями (эмодзи 💡).
+4. Отвечай профессионально и по делу.
 
 Контекст из документов:
-{context}
+{context_text}
 
 {history_block}
 
 Вопрос: {question}
-
 Ответ:"""
         answer_type = "documents"
 
     elif has_some_docs:
-        # === СЦЕНАРИЙ 2: Документы ЧАСТИЧНО связаны ===
-        context_parts = []
-        sources = []
-        for r in results:
-            context_parts.append(f"[Из файла '{r['source']}']:\n{r['text']}")
-            sources.append({"file": r["source"], "score": r["score"]})
-        context = "\n\n---\n\n".join(context_parts)
-
-        prompt = f"""Ты — умный ассистент.
+        logger.info("Strategy: Low relevance documents found (Mixed match).")
+        prompt = f"""Ты — умный корпоративный ассистент.
 
 ПРАВИЛА:
-1. У тебя есть контекст из документов — но он может быть НЕ связан с вопросом.
-2. Если вопрос связан с документами — используй их и укажи файл.
-3. Если вопрос НЕ связан с документами — отвечай из своих общих знаний.
-4. Чётко разделяй: что из документов (📄), а что из знаний (💡).
-5. Отвечай на русском языке.
+1. Контекст ниже может быть лишь частично связан с вопросом.
+2. Если связан — используй его (эмодзи 📄).
+3. Если не связан — опирайся на свои общие знания (эмодзи 💡).
 
-Контекст из документов (может быть не связан с вопросом):
-{context}
+Контекст:
+{context_text}
 
 {history_block}
 
 Вопрос: {question}
-
 Ответ:"""
         answer_type = "mixed"
 
     else:
-        # === СЦЕНАРИЙ 3: Документы НЕ найдены или НЕ связаны ===
-        sources = []
+        logger.info("Strategy: No relevant documents. Using general knowledge fallback.")
+        prompt = f"""Ты — дружелюбный ИИ-ассистент.
 
-        prompt = f"""Ты — умный и дружелюбный ассистент.
-
-Отвечай на любые вопросы из своих общих знаний.
-Начни ответ с 💡 чтобы показать что это из общих знаний.
-Отвечай на русском языке, подробно и интересно.
-Если пользователь спрашивает о документах — напомни что можно загрузить файлы.
+Отвечай на вопрос из своих общих знаний. Начни ответ с 💡.
+Если пользователь спрашивает корпоративные данные, напомни, что можно загрузить файлы.
 
 {history_block}
 
 Вопрос: {question}
-
 Ответ:"""
         answer_type = "general"
 
-    answer = await ask_llm(prompt)
+    # 4. Вызов LLM (Generation)
+    try:
+        answer = await ask_llm(prompt)
+    except Exception as e:
+        logger.error(f"LLM Generation failed: {str(e)}")
+        answer = "Извините, сервис генерации ответов временно недоступен. Попробуйте позже."
 
-    if conversation_id:
+    # 5. Обновление памяти (Memory Update)
+    if conversation_id and "Извините, сервис" not in answer:
         add_to_conversation(conversation_id, "user", question)
         add_to_conversation(conversation_id, "assistant", answer)
 
-    return {"answer": answer, "sources": sources, "answer_type": answer_type}
+    return {
+        "answer": answer,
+        "sources": sources,
+        "answer_type": answer_type
+    }
