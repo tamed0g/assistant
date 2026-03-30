@@ -9,7 +9,6 @@ from app.schemas import AskRequest, AskResponse, DocumentUploadResponse, HealthR
 from app.services.document_service import extract_text, split_into_chunks
 from app.services.vector_service import add_texts
 from app.services.rag_chain import ask_with_rag
-from fastapi.responses import RedirectResponse
 
 
 logging.basicConfig(
@@ -32,11 +31,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-@app.get("/", include_in_schema=False)
-async def root():
-    """Перенаправление корня API на страницу документации"""
-    return RedirectResponse(url="/docs")
 
 @app.get("/health", response_model=HealthResponse, tags=["System"])
 async def health_check():
