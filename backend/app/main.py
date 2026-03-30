@@ -1,6 +1,8 @@
 import logging
+import os
 from typing import List
-
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from fastapi import FastAPI, UploadFile, File, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from app.schemas import AskRequest, AskResponse, DocumentUploadResponse, HealthResponse
@@ -110,3 +112,27 @@ async def ask_question(request: AskRequest):
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE, 
             detail="AI Generation service is currently unavailable."
         )
+
+# ==========================================
+# Раздача фронтенда (React SPA)
+# ==========================================
+
+# Проверяем, существует ли папка static, чтобы не было ошибок
+if os.path.exists("static"):
+    # Раздаем скомпилированные CSS и JS файлы React-приложения
+    app.mount("/assets", StaticFiles(directory="static/assets"), name="assets")
+
+    # Перехватываем все запросы в корень сайта и отдаем красивый дизайн
+    @app.get("/{full_path:path}", include_in_schema=False)
+    async def serve_react_app(full_path: str):
+        """Раздача React SPA (Single Page Application)"""
+        file_path = os.path.join("static", full_path)
+        
+        # Если запрашивают конкретный файл (например, favicon.ico)
+        if os.path.isfile(file_path):
+            return FileResponse(file_path)
+            
+        # Во всех остальных случаях отдаем главную страницу сайта
+        return FileResponse("static/index.html")
+else:
+    logger.warning("Папка 'static' не найдена. UI не будет отображаться.")
