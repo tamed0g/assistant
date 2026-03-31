@@ -107,14 +107,25 @@ async def ask_question(request: AskRequest):
             detail="AI Generation service is currently unavailable."
         )
     
+# ==========================================
+# Раздача фронтенда (React SPA)
+# ==========================================
 if os.path.exists("static"):
-    app.mount("/assets", StaticFiles(directory="static/assets"), name="assets")
+    # Монтируем assets только если они реально существуют (защита от краша)
+    if os.path.exists("static/assets"):
+        app.mount("/assets", StaticFiles(directory="static/assets"), name="assets")
 
     @app.get("/{full_path:path}", include_in_schema=False)
     async def serve_react_app(full_path: str):
+        # Если путь пустой (корень сайта)
+        if not full_path or full_path == "/":
+            return FileResponse("static/index.html")
+            
         file_path = os.path.join("static", full_path)
         if os.path.isfile(file_path):
             return FileResponse(file_path)
+            
+        # Во всех остальных случаях (для React Router) отдаем index.html
         return FileResponse("static/index.html")
 else:
     logger.warning("Папка 'static' не найдена. UI не будет отображаться.")
