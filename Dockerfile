@@ -4,14 +4,13 @@
 FROM node:20-alpine AS frontend-builder
 WORKDIR /app/frontend
 
-# Копируем файлы для установки зависимостей
-COPY frontend_src/package*.json ./
+# Указываем правильный путь от корня проекта
+COPY backend/frontend_src/package*.json ./
 RUN npm install
 
-# Копируем весь исходный код фронтенда и собираем его
-COPY frontend_src/ .
+# Копируем исходники фронтенда из папки backend
+COPY backend/frontend_src/ .
 RUN npm run build
-# После этого появится готовая папка /app/frontend/dist (с assets)
 
 # ==========================================
 # Этап 2: Сборка Python бэкенда (FastAPI)
@@ -21,19 +20,18 @@ ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 WORKDIR /app
 
-# Установка системных зависимостей
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential libpq-dev curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Установка Python пакетов
-COPY requirements.txt .
+# Копируем requirements.txt из папки backend
+COPY backend/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Копируем ваш бэкенд код
-COPY app/ ./app/
+# Копируем код бэкенда из папки backend
+COPY backend/app/ ./app/
 
-# САМОЕ ГЛАВНОЕ: Копируем СОБРАННЫЙ сайт из первого этапа в папку static!
+# Копируем собранный сайт из первого этапа (тут путь менять не нужно, он внутри Docker)
 COPY --from=frontend-builder /app/frontend/dist ./static
 
 ENV PORT=8000
