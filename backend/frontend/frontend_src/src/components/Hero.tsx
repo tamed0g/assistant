@@ -20,7 +20,7 @@ export function Hero() {
           Enterprise RAG Architecture
         </motion.div>
 
-        <motion.h1 
+        <motion.h1
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.1 }}
@@ -32,7 +32,7 @@ export function Hero() {
           </span>
         </motion.h1>
 
-        <motion.p 
+        <motion.p
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.2 }}
@@ -41,17 +41,26 @@ export function Hero() {
           A production-ready Enterprise RAG AI Assistant. Connect your internal knowledge bases securely and deploy a highly contextual AI that understands your business.
         </motion.p>
 
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.3 }}
           className="flex flex-col sm:flex-row items-center justify-center gap-4"
         >
-          <a href="#integration" className="w-full sm:w-auto flex items-center justify-center gap-2 bg-indigo-500 hover:bg-indigo-400 text-white px-6 py-3 rounded-lg font-medium transition-colors">
+          <a 
+            href="#integration" 
+            className="w-full sm:w-auto flex items-center justify-center gap-2 bg-indigo-500 hover:bg-indigo-400 text-white px-6 py-3 rounded-lg font-medium transition-colors"
+          >
             Get Started <ArrowRight className="w-4 h-4" />
           </a>
-          <a href="https://github.com/tamed0g/assistant" target="_blank" rel="noreferrer" className="w-full sm:w-auto flex items-center justify-center gap-2 bg-white/5 hover:bg-white/10 text-white px-6 py-3 rounded-lg font-medium transition-colors border border-white/10">
-            <BookText className="w-4 h-4" /> View Documentation
+
+          <a 
+            href="https://github.com/tamed0g/assistant" 
+            target="_blank" 
+            rel="noreferrer" 
+            className="w-full sm:w-auto flex items-center justify-center gap-2 bg-white/5 hover:bg-white/10 text-white px-6 py-3 rounded-lg font-medium transition-colors border border-white/10"
+          >
+            <BookText className="w-4 h-4" /> GitHub
           </a>
         </motion.div>
       </div>

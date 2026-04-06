@@ -5,11 +5,11 @@ FROM node:20-alpine AS frontend-builder
 WORKDIR /app/frontend
 
 # Указываем правильный путь от корня проекта
-COPY backend/frontend_src/package*.json ./
+COPY backend/frontend/frontend_src/package*.json ./
 RUN npm install
 
 # Копируем исходники фронтенда из папки backend
-COPY backend/frontend_src/ .
+COPY backend/frontend/frontend_src/ .
 RUN npm run build
 
 # ==========================================
