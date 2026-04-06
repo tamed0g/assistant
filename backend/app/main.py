@@ -117,7 +117,7 @@ async def remove_document(filename: str):
         logger.error(f"Failed to delete document {safe_name}: {str(e)}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to delete document.",
+            detail=f"Failed to delete document: {str(e)}",
         )
 
 @app.post("/ask", response_model=AskResponse, tags=["AI Chat"])

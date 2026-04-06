@@ -7,6 +7,7 @@ from qdrant_client import QdrantClient
 from qdrant_client.models import (
     Distance, VectorParams, PointStruct,
     Filter, FieldCondition, MatchValue,
+    FilterSelector,
 )
 from app.services.embedding_service import embed_query, embed_documents
 
@@ -121,7 +122,7 @@ def delete_document(filename: str) -> int:
 
         client.delete(
             collection_name=COLLECTION,
-            points_selector=scroll_filter,
+            points_selector=FilterSelector(filter=scroll_filter),
         )
         logger.info(f"Successfully deleted {count} points for document: {filename}")
         return count
