@@ -1,14 +1,30 @@
 import logging
 import os
 from typing import List
+from urllib.parse import unquote
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from fastapi import FastAPI, UploadFile, File, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
-from app.schemas import AskRequest, AskResponse, DocumentUploadResponse, HealthResponse
+from app.schemas import (
+    AskRequest,
+    AskResponse,
+    DocumentUploadResponse,
+    HealthResponse,
+    DocumentsListResponse,
+    DeleteDocumentResponse,
+    ConversationsListResponse,
+    ConversationHistoryResponse,
+    DeleteConversationResponse,
+)
 from app.services.document_service import extract_text, split_into_chunks
-from app.services.vector_service import add_texts
-from app.services.rag_chain import ask_with_rag
+from app.services.vector_service import add_texts, list_documents, delete_document
+from app.services.rag_chain import (
+    ask_with_rag,
+    list_conversation_ids,
+    get_conversation_history,
+    delete_conversation,
+)
 
 
 logging.basicConfig(
@@ -82,6 +98,28 @@ async def upload_document(file: UploadFile = File(...)):
             detail="An error occurred while processing the document."
         )
 
+
+@app.get("/documents", response_model=DocumentsListResponse, tags=["Documents"])
+async def get_documents():
+    """Список загруженных документов (по данным из Qdrant)."""
+    data = list_documents()
+    return DocumentsListResponse(**data)
+
+
+@app.delete("/documents/{filename}", response_model=DeleteDocumentResponse, tags=["Documents"])
+async def remove_document(filename: str):
+    """Удалить документ (все чанки) из векторной базы."""
+    safe_name = unquote(filename)
+    try:
+        deleted = delete_document(safe_name)
+        return DeleteDocumentResponse(filename=safe_name, deleted_chunks=deleted)
+    except Exception as e:
+        logger.error(f"Failed to delete document {safe_name}: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to delete document.",
+        )
+
 @app.post("/ask", response_model=AskResponse, tags=["AI Chat"])
 async def ask_question(request: AskRequest):
     """
@@ -106,6 +144,28 @@ async def ask_question(request: AskRequest):
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE, 
             detail="AI Generation service is currently unavailable."
         )
+
+
+@app.get("/conversations", response_model=ConversationsListResponse, tags=["AI Chat"])
+async def get_conversations():
+    """Список сохранённых диалогов (in-memory)."""
+    return ConversationsListResponse(conversations=list_conversation_ids())
+
+
+@app.get("/conversations/{conversation_id}", response_model=ConversationHistoryResponse, tags=["AI Chat"])
+async def get_conversation(conversation_id: str):
+    """История конкретного диалога."""
+    conv = unquote(conversation_id)
+    msgs = get_conversation_history(conv)
+    return ConversationHistoryResponse(conversation_id=conv, messages=msgs)
+
+
+@app.delete("/conversations/{conversation_id}", response_model=DeleteConversationResponse, tags=["AI Chat"])
+async def remove_conversation(conversation_id: str):
+    """Удалить диалог целиком."""
+    conv = unquote(conversation_id)
+    deleted = delete_conversation(conv)
+    return DeleteConversationResponse(conversation_id=conv, deleted=deleted)
     
 # ==========================================
 # Раздача фронтенда (React SPA)

@@ -8,16 +8,6 @@ export function Footer() {
           <TerminalSquare className="w-5 h-5 text-indigo-400" />
           <span>ассистент</span>
         </div>
-        
-        <div className="text-sm text-zinc-500">
-          Для приватности. Открытый исходный код под лицензией MIT.
-        </div>
-        
-        <div className="flex gap-6 mt-4 md:mt-0 text-sm text-zinc-400">
-          <a href="https://github.com/tamed0g/assistant" className="hover:text-white transition-colors">GitHub</a>
-          <a href="#" className="hover:text-white transition-colors">Документация</a>
-          <a href="#" className="hover:text-white transition-colors">Discord</a>
-        </div>
       </div>
     </footer>
   );

@@ -35,6 +35,22 @@ def format_history(history: List[Dict[str, str]]) -> str:
         lines.append(f"{role}: {msg['content'][:300]}")
     return "\n".join(lines)
 
+
+def list_conversation_ids() -> List[str]:
+    return sorted(conversations.keys())
+
+
+def get_conversation_history(conv_id: str) -> List[Dict[str, str]]:
+    # Do not auto-create a new conversation here; only return if exists.
+    return conversations.get(conv_id, [])
+
+
+def delete_conversation(conv_id: str) -> bool:
+    if conv_id in conversations:
+        del conversations[conv_id]
+        return True
+    return False
+
 async def ask_with_rag(question: str, conversation_id: Optional[str] = None) -> Dict[str, Any]:
     """
     Основной пайплайн RAG: Поиск контекста + Генерация ответа.

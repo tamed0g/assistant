@@ -1,9 +1,10 @@
-import { FormEvent, useMemo, useState } from 'react';
+import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { Header } from './components/Header';
 import { Footer } from './components/Footer';
 
 function App() {
   type ChatMessage = { role: 'user' | 'assistant'; content: string };
+  type DocumentInfo = { filename: string; chunks: number };
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [question, setQuestion] = useState('');
@@ -26,6 +27,14 @@ function App() {
   const [uploadLoading, setUploadLoading] = useState(false);
   const [uploadMessage, setUploadMessage] = useState('');
   const [uploadError, setUploadError] = useState('');
+
+  const [documents, setDocuments] = useState<DocumentInfo[]>([]);
+  const [docsLoading, setDocsLoading] = useState(false);
+  const [docsError, setDocsError] = useState('');
+
+  const [conversations, setConversations] = useState<string[]>([]);
+  const [conversationsLoading, setConversationsLoading] = useState(false);
+  const [conversationsError, setConversationsError] = useState('');
 
   const effectiveConversationId = useMemo(() => {
     const trimmed = conversationId.trim();
@@ -128,12 +137,101 @@ function App() {
       const data = await response.json();
       setUploadMessage(`Загружено "${data.filename}" успешно (${data.chunks_count} чанков).`);
       setFile(null);
+      void refreshDocuments();
     } catch (error) {
       setUploadError(error instanceof Error ? error.message : 'Unknown error while uploading.');
     } finally {
       setUploadLoading(false);
     }
   };
+
+  const refreshDocuments = async () => {
+    setDocsLoading(true);
+    setDocsError('');
+    try {
+      const resp = await fetch('/documents');
+      if (!resp.ok) {
+        throw new Error(await resp.text());
+      }
+      const data = await resp.json();
+      setDocuments(Array.isArray(data.documents) ? data.documents : []);
+    } catch (e) {
+      setDocsError(e instanceof Error ? e.message : 'Не удалось загрузить список документов.');
+    } finally {
+      setDocsLoading(false);
+    }
+  };
+
+  const deleteDoc = async (filename: string) => {
+    if (!confirm(`Удалить документ "${filename}"?`)) return;
+    try {
+      const resp = await fetch(`/documents/${encodeURIComponent(filename)}`, { method: 'DELETE' });
+      if (!resp.ok) throw new Error(await resp.text());
+      await refreshDocuments();
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Не удалось удалить документ.');
+    }
+  };
+
+  const refreshConversations = async () => {
+    setConversationsLoading(true);
+    setConversationsError('');
+    try {
+      const resp = await fetch('/conversations');
+      if (!resp.ok) throw new Error(await resp.text());
+      const data = await resp.json();
+      setConversations(Array.isArray(data.conversations) ? data.conversations : []);
+    } catch (e) {
+      setConversationsError(e instanceof Error ? e.message : 'Не удалось загрузить список диалогов.');
+    } finally {
+      setConversationsLoading(false);
+    }
+  };
+
+  const openConversation = async (id: string) => {
+    setConversationId(id);
+    setSources([]);
+    setSourcesOpen(false);
+    setChatError('');
+    try {
+      const resp = await fetch(`/conversations/${encodeURIComponent(id)}`);
+      if (!resp.ok) throw new Error(await resp.text());
+      const data = await resp.json();
+      const msgs = Array.isArray(data.messages) ? data.messages : [];
+      setMessages(
+        msgs
+          .filter((m: any) => m && (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string')
+          .map((m: any) => ({ role: m.role, content: m.content })) as ChatMessage[],
+      );
+    } catch (e) {
+      setChatError(e instanceof Error ? e.message : 'Не удалось открыть диалог.');
+    }
+  };
+
+  const deleteConversationById = async (id: string) => {
+    if (!confirm(`Удалить диалог "${id}"?`)) return;
+    try {
+      const resp = await fetch(`/conversations/${encodeURIComponent(id)}`, { method: 'DELETE' });
+      if (!resp.ok) throw new Error(await resp.text());
+      if (conversationId.trim() === id) {
+        setConversationId('');
+        setMessages([]);
+        try {
+          window.localStorage.removeItem('conversation_id');
+        } catch {
+          // ignore
+        }
+      }
+      await refreshConversations();
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Не удалось удалить диалог.');
+    }
+  };
+
+  useEffect(() => {
+    void refreshDocuments();
+    void refreshConversations();
+  }, []);
 
   return (
     <div className="min-h-screen bg-black text-white selection:bg-indigo-500/30 font-sans relative overflow-hidden">
@@ -190,6 +288,44 @@ function App() {
             </div>
 
             <div className="mt-4 rounded-xl border border-white/10 bg-zinc-950/60 p-4">
+              <div className="flex items-center justify-between gap-3">
+                <h2 className="text-lg font-semibold">Документы</h2>
+                <button
+                  type="button"
+                  onClick={() => void refreshDocuments()}
+                  className="rounded-lg border border-white/10 bg-black/20 px-3 py-1.5 text-sm text-zinc-200 hover:bg-black/30"
+                  disabled={docsLoading}
+                >
+                  {docsLoading ? '...' : 'Обновить'}
+                </button>
+              </div>
+
+              {docsError && <div className="mt-3 text-sm text-red-200">{docsError}</div>}
+
+              <div className="mt-3 space-y-2">
+                {documents.length === 0 ? (
+                  <div className="text-sm text-zinc-400">Пока нет загруженных документов.</div>
+                ) : (
+                  documents.map((d) => (
+                    <div key={d.filename} className="flex items-center justify-between gap-3 rounded-lg border border-white/10 bg-black/20 px-3 py-2">
+                      <div className="min-w-0">
+                        <div className="truncate text-sm text-zinc-100">{d.filename}</div>
+                        <div className="text-xs text-zinc-500">чанков: {d.chunks}</div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => void deleteDoc(d.filename)}
+                        className="rounded-md border border-red-500/30 bg-red-500/10 px-2.5 py-1 text-xs text-red-200 hover:bg-red-500/20"
+                      >
+                        Удалить
+                      </button>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+
+            <div className="mt-4 rounded-xl border border-white/10 bg-zinc-950/60 p-4">
               <h2 className="text-lg font-semibold">2) Диалог</h2>
               <p className="mt-1 text-sm text-zinc-400">
                 Можно оставить поле пустым — диалог создастся автоматически.
@@ -216,11 +352,54 @@ function App() {
                     } catch {
                       // ignore
                     }
+                    void refreshConversations();
                   }}
                   className="w-full rounded-lg border border-white/10 bg-black/20 px-4 py-2 text-sm text-zinc-200 hover:bg-black/30"
                 >
                   Начать новый диалог
                 </button>
+              </div>
+            </div>
+
+            <div className="mt-4 rounded-xl border border-white/10 bg-zinc-950/60 p-4">
+              <div className="flex items-center justify-between gap-3">
+                <h2 className="text-lg font-semibold">Диалоги</h2>
+                <button
+                  type="button"
+                  onClick={() => void refreshConversations()}
+                  className="rounded-lg border border-white/10 bg-black/20 px-3 py-1.5 text-sm text-zinc-200 hover:bg-black/30"
+                  disabled={conversationsLoading}
+                >
+                  {conversationsLoading ? '...' : 'Обновить'}
+                </button>
+              </div>
+
+              {conversationsError && <div className="mt-3 text-sm text-red-200">{conversationsError}</div>}
+
+              <div className="mt-3 space-y-2">
+                {conversations.length === 0 ? (
+                  <div className="text-sm text-zinc-400">Пока нет сохранённых диалогов.</div>
+                ) : (
+                  conversations.map((id) => (
+                    <div key={id} className="flex items-center justify-between gap-2 rounded-lg border border-white/10 bg-black/20 px-3 py-2">
+                      <button
+                        type="button"
+                        onClick={() => void openConversation(id)}
+                        className="min-w-0 flex-1 truncate text-left text-sm text-zinc-100 hover:text-white"
+                        title={id}
+                      >
+                        {id}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void deleteConversationById(id)}
+                        className="rounded-md border border-red-500/30 bg-red-500/10 px-2.5 py-1 text-xs text-red-200 hover:bg-red-500/20"
+                      >
+                        Удалить
+                      </button>
+                    </div>
+                  ))
+                )}
               </div>
             </div>
           </section>
