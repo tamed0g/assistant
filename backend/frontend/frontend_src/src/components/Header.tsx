@@ -12,13 +12,12 @@ export function Header() {
       <div className="mx-auto max-w-7xl px-6 h-16 flex items-center justify-between">
         <div className="flex items-center gap-2 text-white font-medium">
           <TerminalSquare className="w-5 h-5 text-indigo-400" />
-          <span>assistant</span>
+          <span>ассистент</span>
         </div>
         
         <nav className="hidden md:flex items-center gap-8 text-sm text-zinc-400">
-          <a href="#features" className="hover:text-white transition-colors">Features</a>
-          <a href="#integration" className="hover:text-white transition-colors">Integration</a>
-          <a href="#security" className="hover:text-white transition-colors">Security</a>
+          <a href="#features" className="hover:text-white transition-colors">Возможности</a>
+          <a href="#integration" className="hover:text-white transition-colors">Интеграция</a>
         </nav>
 
         <a 
@@ -28,7 +27,7 @@ export function Header() {
           className="flex items-center gap-2 text-sm text-zinc-300 hover:text-white transition-colors bg-white/5 hover:bg-white/10 px-3 py-1.5 rounded-full border border-white/10"
         >
           <GithubIcon className="w-4 h-4" />
-          <span>Star on GitHub</span>
+          <span>Звезда на GitHub</span>
         </a>
       </div>
     </header>

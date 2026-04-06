@@ -1,0 +1,10 @@
+# Host node_modules (e.g. Windows) must not be copied into Linux builds — breaks
+# node_modules/.bin shims (vite: Permission denied).
+backend/frontend/frontend_src/node_modules
+
+**/__pycache__
+**/*.pyc
+.git
+.env
+.venv
+venv

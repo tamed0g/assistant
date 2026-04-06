@@ -57,11 +57,12 @@ async def ask_with_rag(question: str, conversation_id: Optional[str] = None) -> 
     has_some_docs = len(results) > 0 and results[0].get("score", 0) > 0.3
 
     context_parts = []
-    sources = []
+    # Frontend + API schema expect `sources` as an array of strings (filenames).
+    sources: List[str] = []
     
     for r in results:
         context_parts.append(f"[Из файла '{r['source']}']:\n{r['text']}")
-        sources.append({"file": r["source"], "score": r["score"]})
+        sources.append(r["source"])
         
     context_text = "\n\n---\n\n".join(context_parts) if context_parts else ""
 

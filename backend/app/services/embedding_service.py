@@ -24,9 +24,31 @@ def embed_texts(texts: List[str]) -> List[List[float]]:
  
 
 
+    # Fallback: deterministic local embedding.
+    # This keeps the app functional when no external embedding provider is configured.
+    dim = 1024
+    return [_local_embed(t, dim) for t in texts]
+
 # ==========================================
 # Mistral AI (превосходное качество!)
 # ==========================================
+
+def _local_embed(text: str, dim: int) -> List[float]:
+    # Generate a deterministic byte stream from hashes, then map to [-1, 1].
+    needed = dim * 2  # 2 bytes per float
+    buf = b""
+    i = 0
+    while len(buf) < needed:
+        seed = f"{text}::{i}".encode("utf-8")
+        buf += hashlib.sha256(seed).digest()
+        i += 1
+
+    vector: List[float] = []
+    for j in range(dim):
+        offset = j * 2
+        val = int.from_bytes(buf[offset : offset + 2], "big") / 65535.0
+        vector.append(val * 2.0 - 1.0)
+    return vector
 
 def _mistral_embed(texts: List[str], api_key: str) -> List[List[float]]:
     """
