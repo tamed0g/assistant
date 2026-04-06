@@ -8,6 +8,7 @@ from qdrant_client.models import (
     Distance, VectorParams, PointStruct,
     Filter, FieldCondition, MatchValue,
     FilterSelector,
+    PayloadSchemaType,
 )
 from app.services.embedding_service import embed_query, embed_documents
 
@@ -36,6 +37,34 @@ def ensure_collection(client: QdrantClient) -> None:
             collection_name=COLLECTION,
             vectors_config=VectorParams(size=len(test_vec), distance=Distance.COSINE),
         )
+    _ensure_payload_indexes(client)
+
+
+def _ensure_payload_indexes(client: QdrantClient) -> None:
+    """
+    Qdrant requires payload indexes for some filter operations.
+    We filter on `source` (filename), so ensure it's indexed as `keyword`.
+    """
+    try:
+        info = client.get_collection(COLLECTION)
+        payload_schema = getattr(info, "payload_schema", None) or {}
+        source_schema = payload_schema.get("source")
+        if source_schema and getattr(source_schema, "data_type", None) == PayloadSchemaType.KEYWORD:
+            return
+    except Exception:
+        # If we can't read schema, attempt index creation anyway.
+        pass
+
+    try:
+        logger.info("Ensuring Qdrant payload index for key 'source' (keyword).")
+        client.create_payload_index(
+            collection_name=COLLECTION,
+            field_name="source",
+            field_schema=PayloadSchemaType.KEYWORD,
+        )
+    except Exception as e:
+        # Index may already exist or be unsupported on some backends.
+        logger.warning(f"Could not create payload index for 'source': {str(e)}")
 
 
 def add_texts(chunks: List[str], filename: str) -> None:

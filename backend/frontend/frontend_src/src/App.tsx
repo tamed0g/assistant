@@ -173,6 +173,19 @@ function App() {
     }
   };
 
+  const deleteAllDocs = async () => {
+    if (!confirm('Удалить все документы?')) return;
+    try {
+      const resp = await fetch('/documents', { method: 'DELETE' });
+      if (!resp.ok) throw new Error(await resp.text());
+      await refreshDocuments();
+      setUploadMessage('');
+      setUploadError('');
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Не удалось удалить все документы.');
+    }
+  };
+
   const refreshConversations = async () => {
     setConversationsLoading(true);
     setConversationsError('');
@@ -290,14 +303,23 @@ function App() {
             <div className="mt-4 rounded-xl border border-white/10 bg-zinc-950/60 p-4">
               <div className="flex items-center justify-between gap-3">
                 <h2 className="text-lg font-semibold">Документы</h2>
-                <button
-                  type="button"
-                  onClick={() => void refreshDocuments()}
-                  className="rounded-lg border border-white/10 bg-black/20 px-3 py-1.5 text-sm text-zinc-200 hover:bg-black/30"
-                  disabled={docsLoading}
-                >
-                  {docsLoading ? '...' : 'Обновить'}
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => void refreshDocuments()}
+                    className="rounded-lg border border-white/10 bg-black/20 px-3 py-1.5 text-sm text-zinc-200 hover:bg-black/30"
+                    disabled={docsLoading}
+                  >
+                    {docsLoading ? '...' : 'Обновить'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void deleteAllDocs()}
+                    className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-1.5 text-sm text-red-200 hover:bg-red-500/20"
+                  >
+                    Удалить все
+                  </button>
+                </div>
               </div>
 
               {docsError && <div className="mt-3 text-sm text-red-200">{docsError}</div>}

@@ -40,6 +40,10 @@ class DeleteDocumentResponse(BaseModel):
     deleted_chunks: int = 0
 
 
+class DeleteAllDocumentsResponse(BaseModel):
+    deleted_chunks: int = 0
+
+
 class ConversationMessage(BaseModel):
     role: Literal["user", "assistant"]
     content: str

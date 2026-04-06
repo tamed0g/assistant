@@ -13,12 +13,13 @@ from app.schemas import (
     HealthResponse,
     DocumentsListResponse,
     DeleteDocumentResponse,
+    DeleteAllDocumentsResponse,
     ConversationsListResponse,
     ConversationHistoryResponse,
     DeleteConversationResponse,
 )
 from app.services.document_service import extract_text, split_into_chunks
-from app.services.vector_service import add_texts, list_documents, delete_document
+from app.services.vector_service import add_texts, list_documents, delete_document, reset_collection
 from app.services.rag_chain import (
     ask_with_rag,
     list_conversation_ids,
@@ -118,6 +119,22 @@ async def remove_document(filename: str):
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to delete document: {str(e)}",
+        )
+
+
+@app.delete("/documents", response_model=DeleteAllDocumentsResponse, tags=["Documents"])
+async def remove_all_documents():
+    """Удалить все документы из векторной базы (сброс коллекции)."""
+    try:
+        before = list_documents()
+        deleted_chunks = int(before.get("total_chunks", 0) or 0)
+        reset_collection()
+        return DeleteAllDocumentsResponse(deleted_chunks=deleted_chunks)
+    except Exception as e:
+        logger.error(f"Failed to delete all documents: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to delete all documents: {str(e)}",
         )
 
 @app.post("/ask", response_model=AskResponse, tags=["AI Chat"])
