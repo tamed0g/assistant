@@ -6,9 +6,9 @@ WORKDIR /app/frontend
 
 # Указываем правильный путь от корня проекта
 COPY backend/frontend/frontend_src/package*.json ./
-RUN npm install
+RUN npm ci
 
-# Копируем исходники фронтенда из папки backend
+# Исходники (node_modules с хоста в .dockerignore — иначе ломаются бинарники в Linux)
 COPY backend/frontend/frontend_src/ .
 RUN npm run build
 
@@ -19,10 +19,6 @@ FROM python:3.12-slim
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 WORKDIR /app
-
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential libpq-dev curl \
-    && rm -rf /var/lib/apt/lists/*
 
 # Копируем requirements.txt из папки backend
 COPY backend/requirements.txt .
