@@ -41,10 +41,6 @@ def ensure_collection(client: QdrantClient) -> None:
 
 
 def _ensure_payload_indexes(client: QdrantClient) -> None:
-    """
-    Qdrant requires payload indexes for some filter operations.
-    We filter on `source` (filename), so ensure it's indexed as `keyword`.
-    """
     try:
         info = client.get_collection(COLLECTION)
         payload_schema = getattr(info, "payload_schema", None) or {}
@@ -52,7 +48,6 @@ def _ensure_payload_indexes(client: QdrantClient) -> None:
         if source_schema and getattr(source_schema, "data_type", None) == PayloadSchemaType.KEYWORD:
             return
     except Exception:
-        # If we can't read schema, attempt index creation anyway.
         pass
 
     try:
@@ -63,7 +58,6 @@ def _ensure_payload_indexes(client: QdrantClient) -> None:
             field_schema=PayloadSchemaType.KEYWORD,
         )
     except Exception as e:
-        # Index may already exist or be unsupported on some backends.
         logger.warning(f"Could not create payload index for 'source': {str(e)}")
 
 

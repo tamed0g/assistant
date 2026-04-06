@@ -259,11 +259,11 @@ function App() {
           <section className="w-full lg:w-[420px] rounded-2xl border border-white/10 bg-black/40 backdrop-blur p-5">
             <h1 className="text-2xl font-bold tracking-tight">Корпоративный помощник</h1>
             <p className="mt-2 text-sm text-zinc-400">
-              Загружайте документы компании и задавайте вопросы — ответы будут опираться на ваш контент.
+              Загружайте документы компании и задавайте вопросы — ответы будут опираться на ваши документы.
             </p>
 
             <div className="mt-6 rounded-xl border border-white/10 bg-zinc-950/60 p-4">
-              <h2 className="text-lg font-semibold">1) Загрузить документ</h2>
+              <h2 className="text-lg font-semibold">Загрузить документ</h2>
               <p className="mt-1 text-sm text-zinc-400">Поддерживаются: `.txt`, `.pdf`, `.md`.</p>
 
               <form onSubmit={uploadDocument} className="mt-4">
@@ -348,7 +348,7 @@ function App() {
             </div>
 
             <div className="mt-4 rounded-xl border border-white/10 bg-zinc-950/60 p-4">
-              <h2 className="text-lg font-semibold">2) Диалог</h2>
+              <h2 className="text-lg font-semibold">Диалог</h2>
               <p className="mt-1 text-sm text-zinc-400">
                 Можно оставить поле пустым — диалог создастся автоматически.
               </p>

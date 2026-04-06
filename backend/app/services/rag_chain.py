@@ -6,7 +6,7 @@ from app.services.vector_service import search
 
 logger = logging.getLogger(__name__)
 
-# In-memory хранилище сессий (в проде заменяется на Redis)
+# In-memory хранилище сессий (заменится на Redis)
 conversations: Dict[str, List[Dict[str, str]]] = {}
 
 def get_conversation(conv_id: str) -> List[Dict[str, str]]:

@@ -31,7 +31,7 @@ async def ask_llm(prompt: str) -> str:
                 json={
                     "model": model,
                     "messages": [{"role": "user", "content": prompt}],
-                    "max_tokens": 1000,
+                    "max_tokens": 2000,
                     "temperature": 0.1,
                 },
                 timeout=120.0,

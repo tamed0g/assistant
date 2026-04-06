@@ -5,13 +5,7 @@ import os
 from typing import List
 
 
-def embed_texts(texts: List[str]) -> List[List[float]]:
-    """
-    Пробуем разные API по очереди.
-    Приоритет: Mistral → HuggingFace → Cohere → Together → Local
-    """
-
-    # Попытка 1: Mistral AI (приоритетно!)
+def embed_texts(texts: List[str]) -> List[List[float]]:   
     mistral_key = os.getenv("MISTRAL_API_KEY", "")
     if mistral_key:
         try:
@@ -30,7 +24,7 @@ def embed_texts(texts: List[str]) -> List[List[float]]:
     return [_local_embed(t, dim) for t in texts]
 
 # ==========================================
-# Mistral AI (превосходное качество!)
+# Mistral AI
 # ==========================================
 
 def _local_embed(text: str, dim: int) -> List[float]:
@@ -51,15 +45,6 @@ def _local_embed(text: str, dim: int) -> List[float]:
     return vector
 
 def _mistral_embed(texts: List[str], api_key: str) -> List[List[float]]:
-    """
-    Mistral AI embeddings — отличное качество для русского языка.
-    
-    Бесплатный тариф: 10K запросов/месяц бесплатно
-    Регистрация: https://console.mistral.ai
-    
-    Модель: mistral-embed
-    Размер вектора: 1024
-    """
     headers = {
         "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json",
