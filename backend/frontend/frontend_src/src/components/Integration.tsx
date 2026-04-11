@@ -1,4 +1,3 @@
-import { motion } from 'framer-motion';
 import { Copy, Terminal } from 'lucide-react';
 
 const codeSnippet = `git clone https://github.com/tamed0g/assistant.git
@@ -18,26 +17,20 @@ export function Integration() {
     <section id="integration" className="py-24 bg-black overflow-hidden relative border-t border-zinc-900">
       <div className="mx-auto max-w-7xl px-6">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
-          
-          <motion.div 
-            initial={{ opacity: 0, x: -20 }}
-            whileInView={{ opacity: 1, x: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.5 }}
-          >
+          <div>
             <h2 className="text-3xl md:text-4xl font-bold tracking-tight text-white mb-6">
               Deploy in Minutes
             </h2>
             <p className="text-lg text-zinc-400 mb-8">
               Don't spend weeks building a RAG pipeline from scratch. Our dockerized setup gets your enterprise assistant running locally or in your cloud environment in under 5 minutes.
             </p>
-            
+
             <ul className="space-y-4 mb-8">
               {[
-                "100% Open Source and self-hostable",
-                "Built-in web UI for chatting with documents",
-                "Easily ingest PDFs, Notion pages, and URLs",
-                "Configurable prompts and retrieval settings"
+                '100% Open Source and self-hostable',
+                'Built-in web UI for chatting with documents',
+                'Easily ingest PDFs, Notion pages, and URLs',
+                'Configurable prompts and retrieval settings',
               ].map((item, i) => (
                 <li key={i} className="flex items-center gap-3 text-zinc-300">
                   <div className="flex-shrink-0 w-5 h-5 rounded-full bg-indigo-500/20 text-indigo-400 flex items-center justify-center text-xs">✓</div>
@@ -45,15 +38,9 @@ export function Integration() {
                 </li>
               ))}
             </ul>
-          </motion.div>
+          </div>
 
-          <motion.div 
-            initial={{ opacity: 0, scale: 0.95 }}
-            whileInView={{ opacity: 1, scale: 1 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.5 }}
-            className="relative"
-          >
+          <div className="relative">
             <div className="absolute -inset-1 rounded-2xl bg-gradient-to-r from-indigo-500 to-purple-600 opacity-20 blur-xl" />
             <div className="relative rounded-2xl border border-white/10 bg-[#0d0d0d] overflow-hidden">
               <div className="flex items-center justify-between px-4 py-3 border-b border-white/10 bg-white/5">
@@ -65,7 +52,8 @@ export function Integration() {
                 <div className="flex items-center gap-2 text-xs text-zinc-500 font-mono">
                   <Terminal className="w-3 h-3" /> bash
                 </div>
-                <button 
+                <button
+                  type="button"
                   className="p-1.5 rounded-md hover:bg-white/10 text-zinc-400 transition-colors"
                   aria-label="Copy code"
                 >
@@ -78,8 +66,7 @@ export function Integration() {
                 </pre>
               </div>
             </div>
-          </motion.div>
-
+          </div>
         </div>
       </div>
     </section>

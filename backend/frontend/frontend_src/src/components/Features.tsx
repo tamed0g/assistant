@@ -1,4 +1,3 @@
-import { motion } from 'framer-motion';
 import { Database, Shield, Cpu, Zap, Link, Box } from 'lucide-react';
 
 const features = [
@@ -31,7 +30,7 @@ const features = [
     icon: Box,
     title: 'Docker Ready',
     description: 'Deploy the entire stack in minutes with our comprehensive docker-compose configuration.',
-  }
+  },
 ];
 
 export function Features() {
@@ -51,12 +50,8 @@ export function Features() {
           {features.map((feature, i) => {
             const Icon = feature.icon;
             return (
-              <motion.div
+              <div
                 key={i}
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.5, delay: i * 0.1 }}
                 className="group relative rounded-2xl border border-white/5 bg-white/5 p-8 hover:bg-white/10 transition-colors"
               >
                 <div className="mb-6 inline-flex h-12 w-12 items-center justify-center rounded-xl bg-indigo-500/10 text-indigo-400 group-hover:bg-indigo-500/20 transition-colors">
@@ -68,7 +63,7 @@ export function Features() {
                 <p className="text-zinc-400 leading-relaxed">
                   {feature.description}
                 </p>
-              </motion.div>
+              </div>
             );
           })}
         </div>
