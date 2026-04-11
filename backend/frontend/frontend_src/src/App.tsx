@@ -45,7 +45,7 @@ function App() {
     try {
       window.localStorage.setItem('conversation_id', next);
     } catch {
-      // ignore storage errors
+      /* localStorage недоступен */
     }
   };
 
@@ -232,7 +232,7 @@ function App() {
         try {
           window.localStorage.removeItem('conversation_id');
         } catch {
-          // ignore
+          /* */
         }
       }
       await refreshConversations();
@@ -372,7 +372,7 @@ function App() {
                     try {
                       window.localStorage.removeItem('conversation_id');
                     } catch {
-                      // ignore
+                      /* */
                     }
                     void refreshConversations();
                   }}

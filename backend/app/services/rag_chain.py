@@ -6,7 +6,7 @@ from app.services.vector_service import search
 
 logger = logging.getLogger(__name__)
 
-# In-memory хранилище сессий (заменится на Redis)
+# Память процесса; для нескольких инстансов нужен общий store (Redis и т.д.)
 conversations: Dict[str, List[Dict[str, str]]] = {}
 
 def get_conversation(conv_id: str) -> List[Dict[str, str]]:
@@ -20,7 +20,7 @@ def add_to_conversation(conv_id: str, role: str, content: str) -> None:
         
     conversations[conv_id].append({"role": role, "content": content})
     
-    # Сохраняем только последние 20 сообщений, чтобы не переполнить контекст (Sliding Window)
+    # не больше 20 реплик в истории для промпта
     if len(conversations[conv_id]) > 20:
         conversations[conv_id] = conversations[conv_id][-20:]
 
@@ -41,7 +41,6 @@ def list_conversation_ids() -> List[str]:
 
 
 def get_conversation_history(conv_id: str) -> List[Dict[str, str]]:
-    # Do not auto-create a new conversation here; only return if exists.
     return conversations.get(conv_id, [])
 
 

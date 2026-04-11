@@ -1,6 +1,5 @@
 import logging
 import os
-from typing import List
 from urllib.parse import unquote
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
@@ -40,7 +39,7 @@ app = FastAPI(
     version="1.0.0",
 )
 
-# Настройка CORS для работы с Railway и локальным React-фронтендом
+# CORS: фронт и деплой на PaaS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],  
@@ -51,7 +50,7 @@ app.add_middleware(
 
 @app.get("/health", response_model=HealthResponse, tags=["System"])
 async def health_check():
-    """Проверка доступности API (Health Check)"""
+    """Health check для оркестраторов."""
     return HealthResponse(status="healthy", version="1.0.0")
 
 @app.post("/upload", response_model=DocumentUploadResponse, tags=["Documents"])
@@ -59,7 +58,7 @@ async def upload_document(file: UploadFile = File(...)):
     """Загрузка и векторизация документа в базу знаний"""
     filename = file.filename.lower()
     
-    #проверка формата
+    # проверка расширения
     if not filename.endswith((".txt", ".pdf", ".md")):
         logger.warning(f"Attempted to upload unsupported file type: {filename}")
         raise HTTPException(
@@ -102,29 +101,16 @@ async def upload_document(file: UploadFile = File(...)):
 
 @app.get("/documents", response_model=DocumentsListResponse, tags=["Documents"])
 async def get_documents():
-    """Список загруженных документов (по данным из Qdrant)."""
+    """Список загруженных документов из Qdrant."""
     data = list_documents()
     return DocumentsListResponse(**data)
 
 
-@app.delete("/documents/{filename}", response_model=DeleteDocumentResponse, tags=["Documents"])
-async def remove_document(filename: str):
-    """Удалить документ (все чанки) из векторной базы."""
-    safe_name = unquote(filename)
-    try:
-        deleted = delete_document(safe_name)
-        return DeleteDocumentResponse(filename=safe_name, deleted_chunks=deleted)
-    except Exception as e:
-        logger.error(f"Failed to delete document {safe_name}: {str(e)}", exc_info=True)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to delete document: {str(e)}",
-        )
-
-
+# Важно: маршрут без {filename} регистрируем раньше, иначе часть клиентов/прокси
+# может некорректно сопоставить DELETE /documents с шаблоном /documents/{filename}.
 @app.delete("/documents", response_model=DeleteAllDocumentsResponse, tags=["Documents"])
 async def remove_all_documents():
-    """Удалить все документы из векторной базы (сброс коллекции)."""
+    """Полная очистка коллекции документов в Qdrant."""
     try:
         before = list_documents()
         deleted_chunks = int(before.get("total_chunks", 0) or 0)
@@ -135,6 +121,21 @@ async def remove_all_documents():
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to delete all documents: {str(e)}",
+        )
+
+
+@app.delete("/documents/{filename}", response_model=DeleteDocumentResponse, tags=["Documents"])
+async def remove_document(filename: str):
+    """Удалить один документ (все его чанки)."""
+    safe_name = unquote(filename)
+    try:
+        deleted = delete_document(safe_name)
+        return DeleteDocumentResponse(filename=safe_name, deleted_chunks=deleted)
+    except Exception as e:
+        logger.error(f"Failed to delete document {safe_name}: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to delete document: {str(e)}",
         )
 
 @app.post("/ask", response_model=AskResponse, tags=["AI Chat"])
@@ -183,26 +184,19 @@ async def remove_conversation(conversation_id: str):
     conv = unquote(conversation_id)
     deleted = delete_conversation(conv)
     return DeleteConversationResponse(conversation_id=conv, deleted=deleted)
-    
-# ==========================================
-# Раздача фронтенда (React SPA)
-# ==========================================
 if os.path.exists("static"):
-    # Монтируем assets только если они реально существуют (защита от краша)
     if os.path.exists("static/assets"):
         app.mount("/assets", StaticFiles(directory="static/assets"), name="assets")
 
     @app.get("/{full_path:path}", include_in_schema=False)
     async def serve_react_app(full_path: str):
-        # Если путь пустой (корень сайта)
         if not full_path or full_path == "/":
             return FileResponse("static/index.html")
-            
+
         file_path = os.path.join("static", full_path)
         if os.path.isfile(file_path):
             return FileResponse(file_path)
-            
-        # Во всех остальных случаях (для React Router) отдаем index.html
+
         return FileResponse("static/index.html")
 else:
     logger.warning("Папка 'static' не найдена. UI не будет отображаться.")
