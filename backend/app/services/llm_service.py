@@ -21,6 +21,8 @@ async def ask_llm(prompt: str) -> str:
     headers = {
         "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json",
+        "HTTP-Referer": "https://github.com/tamed0g/assistant",
+        "X-Title": "Enterprise Assistant",
     }
 
     try:
@@ -36,7 +38,11 @@ async def ask_llm(prompt: str) -> str:
                 },
                 timeout=120.0,
             )
-            resp.raise_for_status()
+
+            if not resp.is_success:
+                logger.error(f"OpenRouter HTTP {resp.status_code}: {resp.text}")
+                resp.raise_for_status()
+
             data = resp.json()
 
             if "error" in data:
@@ -48,7 +54,7 @@ async def ask_llm(prompt: str) -> str:
                 raise RuntimeError("Invalid response from LLM provider")
 
             return data["choices"][0]["message"]["content"]
-            
+
     except httpx.HTTPError as e:
         logger.error(f"HTTP Exception for LLM request: {str(e)}")
         raise RuntimeError(f"Failed to communicate with LLM provider: {str(e)}")

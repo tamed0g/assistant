@@ -5,11 +5,10 @@ FROM node:20-alpine AS frontend-builder
 WORKDIR /app/frontend
 
 # Указываем правильный путь от корня проекта
-COPY backend/frontend/frontend_src/package*.json ./
+COPY frontend/package*.json ./
 RUN npm ci
 
-# Исходники (node_modules с хоста в .dockerignore — иначе ломаются бинарники в Linux)
-COPY backend/frontend/frontend_src/ .
+COPY frontend/ .
 # Some hosted builders end up with non-executable npm bin shims (vite: Permission denied).
 # Call Vite via node directly to avoid relying on +x bits for node_modules/.bin/*
 RUN node ./node_modules/vite/bin/vite.js build

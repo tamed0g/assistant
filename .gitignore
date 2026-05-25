@@ -3,6 +3,6 @@ __pycache__/
 *.pyc
 .venv/
 venv/
-backend/frontend/frontend_src/node_modules/
+frontend/node_modules/
 backend/app/static/
 uploads/
